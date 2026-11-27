@@ -1,0 +1,1680 @@
+local Rayfield = nil
+pcall(function()
+    Rayfield = loadstring(game:HttpGet("https://sirius.menu/rayfield"))()
+end)
+if not Rayfield and typeof(_G.Rayfield) == "table" and _G.Rayfield.CreateWindow then
+    Rayfield = _G.Rayfield
+end
+if not Rayfield then
+    warn("ERROR: Rayfield library could not be loaded.")
+    return
+end
+
+local RunService = game:GetService("RunService")
+local Workspace = game:GetService("Workspace")
+local Players = game:GetService("Players")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local Lighting = game:GetService("Lighting")
+
+local LocalPlayer = Players.LocalPlayer
+local Character = LocalPlayer.Character or LocalPlayer.CharacterAdded:Wait()
+local character = Character
+
+LocalPlayer.CharacterAdded:Connect(function(newChar)
+    Character = newChar
+    character = newChar
+end)
+
+--// CONSTANTS & ESP CONFIG \\--
+
+local PATH_ZOMBIES = "Zombies"
+local PATH_PUMPKINS = "Halloween.Pumpkins"
+local PATH_JERRYCANS = "JerryCans"
+local PATH_AMMOPILES = "AmmoPiles"
+local PATH_CABINS = "Cabins"
+local PATH_ITEMSPOTS = "ItemSpots"
+local NAME_SHOTGUN = "Shotgun"
+local NAME_MUTANT = "Mutant"
+local NAME_WORKER = "WorkerHead"
+local NAME_GHOST = "GhostChild"
+local NAME_FLASHLIGHT = "Flashlight"
+local STAMINA_PATH = "Sprint.Stam"
+local INFINITE_STAMINA_VALUE = 5
+
+local ESP_COLORS = {
+    Zombies = Color3.fromRGB(255, 165, 0),
+    Pumpkins = Color3.fromRGB(255, 140, 0),
+    JerryCans = Color3.fromRGB(255, 0, 0),
+    Cabins = Color3.fromRGB(139, 69, 19),
+    DefaultItem = Color3.fromRGB(0, 200, 255),
+    Marshmallow = Color3.fromRGB(255, 192, 203),
+    Camera = Color3.fromRGB(0, 255, 0),
+    Battery = Color3.fromRGB(150, 75, 0),
+    Shotgun = Color3.fromRGB(150, 150, 150),
+    Mutant = Color3.fromRGB(255, 0, 0),
+    Worker = Color3.fromRGB(128, 128, 128),
+    AmmoLog = Color3.fromRGB(139, 69, 19),
+    AmmoShells = Color3.fromRGB(255, 255, 0),
+    Ghost = Color3.fromRGB(255, 255, 255)
+}
+
+local MutantParts = {
+    "LeftClaw1", "Head", "LeftClaw2", "LeftClaw3", "LeftClaw4", "LeftLowerArm",
+    "LeftLowerLeg", "LeftTeeth", "LeftTorso", "LeftUpperArm", "LeftUpperLeg",
+    "RightClaw1", "RightClaw2", "RightClaw3", "RightClaw4", "RightLowerArm",
+    "RightLowerLeg", "RightTeeth", "RightTorso", "RightUpperArm", "RightUpperLeg",
+    "Tongue"
+}
+
+local WorkerParts = {
+    "LowerLeg1", "LowerLeg3", "LowerLeg2", "L.InnerEye", "Head", "L.OuterEye",
+    "LowerLeg4", "LowerLeg5", "LowerLeg6", "Pumpkin", "R.InnerEye", "R.OuterEye",
+    "Teeth", "UpperLeg1", "UpperLeg2", "UpperLeg3", "UpperLeg4", "UpperLeg5",
+    "UpperLeg6"
+}
+
+local GhostParts = {
+    "HeadMesh", "Helmet", "Head", "HumanoidRootPart", "Left Arm", "Left Leg",
+    "Right Arm", "Right Leg", "Torso", "GhostChild"
+}
+
+local ActiveHighlights = {}
+local ActiveNameTags = {}
+
+local State = {
+    Zombies = false,
+    Pumpkins = false,
+    JerryCans = false,
+    Cabins = false,
+    ItemSpots = false,
+    Shotgun = false,
+    Mutant = false,
+    Worker = false,
+    Names = false,
+    Noclip = false,
+    Godmode = false,
+    InfiniteBattery = false,
+    InfiniteStamina = false,
+    Fullbright = false,
+    LiveAmmo = false,
+    Ghost = false,
+    CabinWarning = false
+}
+
+local EspConnection = nil
+local NoclipConnection = nil
+local GodmodeConnection = nil
+local BatteryConnection = nil
+local StaminaConnection = nil
+local CabinDoorConnection = nil
+
+--// WINDOW & TABS \\--
+
+local Window = Rayfield:CreateWindow({
+    Name = "RMxploit | Universal Hub",
+    Icon = 0,
+    LoadingTitle = "RMxploit",
+    LoadingSubtitle = "Universal Mode (Any Game)",
+    Theme = "Default",
+    DisableRayfieldPrompts = false,
+    DisableBuildWarnings = false,
+    ConfigurationSaving = {
+        Enabled = true,
+        FolderName = "RMxploit",
+        FileName = "UniversalCombined"
+    },
+    Discord = {
+        Enabled = false,
+        Invite = "noinvitelink",
+        RememberJoins = true
+    },
+    KeySystem = false
+})
+
+local MainTab = Window:CreateTab("Main", 4483362458)
+local VisualsTab = Window:CreateTab("Visuals", 4483362458)
+local N1Tab = Window:CreateTab("Night 1", 4483362458)
+local N2Tab = Window:CreateTab("Night 2", 4483362458)
+local N3HelperTab = Window:CreateTab("Night 3 & Helper", 4483362458)
+local MiscTab = Window:CreateTab("Misc & Antis", 4483362458)
+
+local locations = {
+    ["Ladder"] = CFrame.new(-0.173666388, 9.29997444, -81.3216171, 0.71976018, 4.61229028e-08, -0.694222808, 2.05241513e-08, 1, 8.7717325e-08, 0.694222808, -7.73837669e-08, 0.71976018),
+    ["Generator"] = CFrame.new(-79.722, 4.675, -131.918),
+    ["Bedroom"] = CFrame.new(-32.645, 23.8, -72.845),
+    ["LivingRoom"] = CFrame.new(-34.962, 8.05, -47.153),
+    ["Entrance"] = CFrame.new(-11.036, 7.73, -31.822),
+    ["SafeSpot"] = CFrame.new(-339.321, 82.4, -40.622),
+    ["DeliveryBoard"] = CFrame.new(-282.224, 82.4, 14.674),
+    ["Main"] = CFrame.new(-304.235, 82.4, -6.777),
+    ["Corridor1"] = CFrame.new(-303.846, 82.4, 50.169),
+    ["Entrance2"] = CFrame.new(-217.417, 82.4, 65.412),
+    ["Corridor2"] = CFrame.new(-293.11, 82.4, -89.501)
+}
+
+local function getSelectedOption(selected)
+    if type(selected) == "table" then
+        return selected[1]
+    end
+    return selected
+end
+
+local function Teleport(location)
+    local currentChar = LocalPlayer.Character or LocalPlayer.CharacterAdded:Wait()
+    if currentChar and locations[location] then
+        currentChar:PivotTo(locations[location])
+    end
+end
+
+local function SafeCFrameTP(targetCFrame)
+    local root = LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
+    if root then
+        root.CFrame = targetCFrame + Vector3.new(0, 5, 0)
+    end
+end
+
+local function ResolvePath(pathStr)
+    local parts = pathStr:split(".")
+    local current = Workspace
+
+    if parts[1] == NAME_MUTANT or parts[1] == NAME_WORKER or parts[1] == NAME_GHOST then
+        local fromRS = ReplicatedStorage:FindFirstChild(parts[1])
+        if fromRS then
+            return fromRS
+        end
+    end
+
+    if pathStr:find("ReplicatedStorage") == 1 then
+        current = ReplicatedStorage
+        if parts[1] == "ReplicatedStorage" then
+            table.remove(parts, 1)
+        end
+    end
+
+    for _, partName in ipairs(parts) do
+        if not current then
+            return nil
+        end
+        current = current:FindFirstChild(partName)
+    end
+
+    return current
+end
+
+local function ResolveIndexedPath(pathStr)
+    local str = pathStr
+    if str:sub(1, 10) == "workspace." then
+        str = str:sub(11)
+    elseif str:sub(1, 18) == "ReplicatedStorage." then
+        str = str:sub(19)
+    end
+
+    local current = pathStr:find("ReplicatedStorage") == 1 and ReplicatedStorage or Workspace
+    for _, segment in ipairs(str:split(".")) do
+        if not current then
+            return nil
+        end
+        local baseName, indexStr = segment:match("^(.*)%[([0-9]+)%]$")
+        if indexStr then
+            local parentObj = current:FindFirstChild(baseName)
+            local idx = tonumber(indexStr)
+            if not parentObj or not idx or idx < 1 then
+                return nil
+            end
+            local children = parentObj:GetChildren()
+            if idx > #children then
+                return nil
+            end
+            current = children[idx]
+        else
+            current = current:FindFirstChild(segment)
+        end
+    end
+    return current
+end
+
+local function TeleportToIndexedPath(pathStr)
+    local target = ResolveIndexedPath(pathStr)
+    local targetPart = nil
+    if target then
+        if target:IsA("BasePart") then
+            targetPart = target
+        elseif target:IsA("Model") then
+            targetPart = target.PrimaryPart or target:FindFirstChildOfClass("BasePart", true)
+        else
+            targetPart = target:FindFirstChildOfClass("BasePart", true)
+        end
+    end
+    if targetPart and targetPart:IsA("BasePart") then
+        SafeCFrameTP(targetPart.CFrame)
+    else
+        warn("TP Error: Target part not found at path:", pathStr)
+    end
+end
+
+local function SetHighlight(target, enabled, color, fullFill)
+    local existing = ActiveHighlights[target]
+    if enabled then
+        if not existing then
+            local hl = Instance.new("Highlight")
+            hl.Name = target.Name .. "_ESP"
+            hl.OutlineColor = color
+            hl.OutlineTransparency = 0
+            hl.FillColor = color
+            hl.FillTransparency = fullFill and 1 or 0.5
+            hl.Enabled = true
+            hl.Parent = target
+            ActiveHighlights[target] = hl
+        else
+            existing.OutlineColor = color
+            existing.FillColor = color
+            existing.FillTransparency = fullFill and 1 or 0.5
+            existing.Enabled = true
+        end
+    elseif existing then
+        existing:Destroy()
+        ActiveHighlights[target] = nil
+    end
+end
+
+local function SetNameTag(target, enabled, labelText, textColor)
+    local existing = ActiveNameTags[target]
+    if enabled and State.Names then
+        if not existing then
+            local gui = Instance.new("BillboardGui")
+            gui.Name = target.Name .. "_NameTag"
+            gui.AlwaysOnTop = true
+            gui.Size = UDim2.new(0, 80, 0, 12)
+            gui.StudsOffset = Vector3.new(0, 1.2, 0)
+
+            local label = Instance.new("TextLabel")
+            label.Text = labelText
+            label.TextScaled = true
+            label.Font = Enum.Font.Code
+            label.TextSize = 12
+            label.TextColor3 = textColor
+            label.BackgroundTransparency = 0
+            label.BackgroundColor3 = Color3.fromRGB(0, 0, 0)
+            label.Size = UDim2.new(1, 0, 1, 0)
+            label.Parent = gui
+
+            gui.Parent = target
+            ActiveNameTags[target] = gui
+        end
+    elseif existing then
+        existing:Destroy()
+        ActiveNameTags[target] = nil
+    end
+end
+
+local function UpdateESP()
+    local anyEspActive = State.Zombies or State.Pumpkins or State.JerryCans or State.Mutant
+        or State.Worker or State.Cabins or State.ItemSpots or State.Shotgun
+        or State.LiveAmmo or State.Ghost
+    if not anyEspActive then
+        return
+    end
+
+    local tracked = {}
+
+    if State.Zombies then
+        local container = ResolvePath(PATH_ZOMBIES)
+        if container then
+            for _, obj in ipairs(container:GetChildren()) do
+                if obj:IsA("BasePart") or obj:IsA("Model") then
+                    SetHighlight(obj, true, ESP_COLORS.Zombies, false)
+                    SetNameTag(obj, true, "ZOMBIE", ESP_COLORS.Zombies)
+                    tracked[obj] = true
+                end
+            end
+        end
+    end
+
+    if State.Pumpkins then
+        local container = ResolvePath(PATH_PUMPKINS)
+        if container then
+            for _, obj in ipairs(container:GetChildren()) do
+                if obj:IsA("BasePart") or obj:IsA("Model") then
+                    SetHighlight(obj, true, ESP_COLORS.Pumpkins, false)
+                    SetNameTag(obj, true, "PUMPKIN ITEM", ESP_COLORS.Pumpkins)
+                    tracked[obj] = true
+                end
+            end
+        end
+    end
+
+    if State.JerryCans then
+        local container = ResolvePath(PATH_JERRYCANS)
+        if container then
+            if container:IsA("BasePart") or container:IsA("Model") then
+                SetHighlight(container, true, ESP_COLORS.JerryCans, false)
+                SetNameTag(container, true, "JERRYCAN GAS", ESP_COLORS.JerryCans)
+                tracked[container] = true
+            else
+                for _, obj in ipairs(container:GetChildren()) do
+                    if obj:IsA("BasePart") or obj:IsA("Model") then
+                        SetHighlight(obj, true, ESP_COLORS.JerryCans, false)
+                        SetNameTag(obj, true, "JERRYCAN GAS", ESP_COLORS.JerryCans)
+                        tracked[obj] = true
+                    end
+                end
+            end
+        end
+    end
+
+    if State.Cabins then
+        local container = ResolvePath(PATH_CABINS)
+        if container then
+            for _, obj in ipairs(container:GetChildren()) do
+                if obj:IsA("BasePart") or obj:IsA("Model") then
+                    SetHighlight(obj, true, ESP_COLORS.Cabins, true)
+                    SetNameTag(obj, true, "CABIN", ESP_COLORS.Cabins)
+                    tracked[obj] = true
+                end
+            end
+        end
+    end
+
+    if State.ItemSpots then
+        local container = ResolvePath(PATH_ITEMSPOTS)
+        if container then
+            for _, spot in ipairs(container:GetChildren()) do
+                local target = spot:FindFirstChildOfClass("BasePart") or spot:FindFirstChildOfClass("Model")
+                if target and (target:IsA("BasePart") or target:IsA("Model")) then
+                    local upperName = target.Name:upper()
+                    local col = ESP_COLORS.DefaultItem
+                    local tagText = upperName
+                    if upperName:find("MARSHMALLOW") then
+                        col = ESP_COLORS.Marshmallow
+                        tagText = "MARSHMALLOW"
+                    elseif upperName:find("CAMERA") then
+                        col = ESP_COLORS.Camera
+                        tagText = "CAMERA"
+                    elseif upperName:find("BATTERY") then
+                        col = ESP_COLORS.Battery
+                        tagText = "BATTERY"
+                    elseif upperName:find("SHOTGUN") or upperName:find("AMMO") then
+                        col = ESP_COLORS.Shotgun
+                        tagText = "SHOTGUN AMMO"
+                    end
+                    SetHighlight(target, true, col, false)
+                    SetNameTag(target, true, tagText, col)
+                    tracked[target] = true
+                end
+            end
+        end
+    end
+
+    if State.Shotgun then
+        local worldShotgun = Workspace:FindFirstChild(NAME_SHOTGUN)
+        if worldShotgun and (worldShotgun:IsA("BasePart") or worldShotgun:IsA("Model")) then
+            SetHighlight(worldShotgun, true, ESP_COLORS.Shotgun, false)
+            SetNameTag(worldShotgun, true, "SHOTGUN (W)", ESP_COLORS.Shotgun)
+            tracked[worldShotgun] = true
+        else
+            local char = LocalPlayer.Character
+            local equipped = char and char:FindFirstChild(NAME_SHOTGUN)
+            if equipped and equipped:IsA("Model") then
+                local part = equipped.PrimaryPart or equipped:FindFirstChildOfClass("BasePart")
+                if part then
+                    SetHighlight(part, true, ESP_COLORS.Shotgun, false)
+                    SetNameTag(part, true, "SHOTGUN (E)", ESP_COLORS.Shotgun)
+                    tracked[part] = true
+                end
+            end
+        end
+    end
+
+    if State.Mutant then
+        local mutant = Workspace:FindFirstChild(NAME_MUTANT) or ReplicatedStorage:FindFirstChild(NAME_MUTANT)
+        if mutant then
+            for _, partName in ipairs(MutantParts) do
+                local part = mutant:FindFirstChild(partName)
+                if part and (part:IsA("BasePart") or part:IsA("Model")) then
+                    SetHighlight(part, true, ESP_COLORS.Mutant, false)
+                    if partName == "Head" then
+                        SetNameTag(part, true, "MUTANT", ESP_COLORS.Mutant)
+                    end
+                    tracked[part] = true
+                end
+            end
+        end
+    end
+
+    if State.Worker then
+        local worker = Workspace:FindFirstChild(NAME_WORKER) or ReplicatedStorage:FindFirstChild(NAME_WORKER)
+        if worker then
+            for _, partName in ipairs(WorkerParts) do
+                local part = worker:FindFirstChild(partName)
+                if part and (part:IsA("BasePart") or part:IsA("Model")) then
+                    SetHighlight(part, true, ESP_COLORS.Worker, false)
+                    if partName == "Head" then
+                        SetNameTag(part, true, "SPIDER", ESP_COLORS.Worker)
+                    end
+                    tracked[part] = true
+                end
+            end
+        end
+    end
+
+    if State.Ghost then
+        local ghost = Workspace:FindFirstChild(NAME_GHOST) or ReplicatedStorage:FindFirstChild(NAME_GHOST)
+        if ghost then
+            for _, partName in ipairs(GhostParts) do
+                local part = ghost:FindFirstChild(partName)
+                if part and (part:IsA("BasePart") or part:IsA("Model")) then
+                    SetHighlight(part, true, ESP_COLORS.Ghost, false)
+                    if partName == "Head" then
+                        SetNameTag(part, true, "GHOST", ESP_COLORS.Ghost)
+                    end
+                    tracked[part] = true
+                end
+            end
+        end
+    end
+
+    if State.LiveAmmo then
+        local ammoContainer = ResolvePath(PATH_AMMOPILES)
+        if ammoContainer then
+            for _, pile in ipairs(ammoContainer:GetChildren()) do
+                if pile:IsA("Model") or pile:IsA("BasePart") then
+                    local logPart = pile:FindFirstChild("Log")
+                    local shellsPart = pile:FindFirstChild("Shells")
+                    if logPart and shellsPart then
+                        SetHighlight(logPart, true, ESP_COLORS.AmmoLog, false)
+                        SetHighlight(shellsPart, true, ESP_COLORS.AmmoShells, false)
+                        SetNameTag(logPart, true, "LIVE AMMO", ESP_COLORS.AmmoShells)
+                        tracked[logPart] = true
+                        tracked[shellsPart] = true
+                    end
+                end
+            end
+        end
+    end
+
+    for obj in pairs(ActiveHighlights) do
+        if not tracked[obj] or not obj.Parent then
+            SetHighlight(obj, false)
+        end
+    end
+
+    for obj in pairs(ActiveNameTags) do
+        if not tracked[obj] or not obj.Parent or not State.Names then
+            SetNameTag(obj, false)
+        end
+    end
+end
+
+local function RefreshEspLoop()
+    local anyEspActive = State.Zombies or State.Pumpkins or State.JerryCans or State.Mutant
+        or State.Worker or State.Cabins or State.ItemSpots or State.Shotgun
+        or State.LiveAmmo or State.Ghost
+    if anyEspActive and not EspConnection then
+        EspConnection = RunService.RenderStepped:Connect(UpdateESP)
+    elseif not anyEspActive and EspConnection then
+        EspConnection:Disconnect()
+        EspConnection = nil
+        for obj in pairs(ActiveHighlights) do
+            SetHighlight(obj, false)
+        end
+        for obj in pairs(ActiveNameTags) do
+            SetNameTag(obj, false)
+        end
+    end
+end
+
+local function StepNoclip()
+    local char = LocalPlayer.Character
+    if char then
+        for _, part in ipairs(char:GetChildren()) do
+            if part:IsA("BasePart") then
+                part.CanCollide = false
+            end
+        end
+    end
+end
+
+local function StepGodmode()
+    local char = LocalPlayer.Character
+    local hum = char and char:FindFirstChildOfClass("Humanoid")
+    if hum then
+        hum.MaxHealth = 10000
+        if hum.Health < 100 then
+            hum.Health = 100
+        end
+        local state = hum:GetState()
+        if state ~= Enum.HumanoidStateType.Running
+            and state ~= Enum.HumanoidStateType.Jumping
+            and state ~= Enum.HumanoidStateType.Freefall
+            and state ~= Enum.HumanoidStateType.Seated then
+            hum:ChangeState(Enum.HumanoidStateType.GettingUp)
+        end
+    elseif char and not hum then
+        warn("GODMODE ALERT: Humanoid was destroyed. Attempting respawn.")
+        LocalPlayer:LoadCharacter()
+    end
+end
+
+local function StepBattery()
+    local char = LocalPlayer.Character
+    local bat = char and char:FindFirstChild(NAME_FLASHLIGHT) and char[NAME_FLASHLIGHT]:FindFirstChild("Battery")
+    if not bat and LocalPlayer:FindFirstChild("Backpack") then
+        local tool = LocalPlayer.Backpack:FindFirstChild(NAME_FLASHLIGHT)
+        bat = tool and tool:FindFirstChild("Battery")
+    end
+    if bat and bat:IsA("NumberValue") then
+        bat.Value = math.huge
+    end
+end
+
+local function StepStamina()
+    local char = LocalPlayer.Character
+    local sprint = char and char:FindFirstChild("Sprint")
+    local stam = sprint and sprint:FindFirstChild("Stam")
+    if stam and stam:IsA("NumberValue") then
+        stam.Value = INFINITE_STAMINA_VALUE
+    end
+end
+
+local function NotifyWarning(title, content)
+    Rayfield:Notify({
+        Title = title,
+        Content = content,
+        Duration = 5,
+        Image = 4483362458
+    })
+end
+
+local function StartCabinWarning()
+    local remotesFolder = ReplicatedStorage:FindFirstChild("Remotes")
+    local openDoorRemote = remotesFolder and remotesFolder:FindFirstChild("OpenDoor")
+    if not openDoorRemote or not openDoorRemote:IsA("RemoteEvent") then
+        NotifyWarning("Config Alert", "RemoteEvent 'OpenDoor' not found in this game.")
+        return
+    end
+    if CabinDoorConnection then
+        CabinDoorConnection:Disconnect()
+    end
+    CabinDoorConnection = openDoorRemote.OnClientEvent:Connect(function(intruder, doorObj)
+        local actorName = "Someone (Possibly Bot)"
+        if intruder and intruder:IsA("Player") then
+            if intruder == LocalPlayer then
+                return
+            end
+            actorName = intruder.Name
+        end
+        local doorName = (typeof(doorObj) == "Instance" and doorObj.Name) or "a door"
+        NotifyWarning("INTRUDER DETECTED", actorName .. " is trying to open " .. doorName .. "!")
+    end)
+    NotifyWarning("Detector Active", "Listening for 'OpenDoor' client events.")
+end
+
+local function SetCabinWarning(enabled)
+    State.CabinWarning = enabled
+    if enabled then
+        StartCabinWarning()
+    elseif CabinDoorConnection then
+        CabinDoorConnection:Disconnect()
+        CabinDoorConnection = nil
+        NotifyWarning("Detector Disabled", "Cabin intrusion warning is off.")
+    end
+end
+
+local function SetFullbright(enabled)
+    State.Fullbright = enabled
+    local nightGui = LocalPlayer:WaitForChild("PlayerGui"):FindFirstChild("Night")
+    if enabled then
+        _G.OriginalBrightness = Lighting.Brightness
+        _G.OriginalAmbient = Lighting.Ambient
+        _G.OriginalOutdoorAmbient = Lighting.OutdoorAmbient
+        _G.OriginalSky = Lighting:FindFirstChildOfClass("Sky")
+        if _G.OriginalSky then
+            _G.OriginalSky.Parent = nil
+        end
+        if nightGui then
+            nightGui.Enabled = false
+        end
+        Lighting.Brightness = 2
+        Lighting.Ambient = Color3.fromRGB(255, 255, 255)
+        Lighting.OutdoorAmbient = Color3.fromRGB(255, 255, 255)
+    else
+        if _G.OriginalAmbient then
+            Lighting.Ambient = _G.OriginalAmbient
+        end
+        if _G.OriginalOutdoorAmbient then
+            Lighting.OutdoorAmbient = _G.OriginalOutdoorAmbient
+        end
+        if _G.OriginalBrightness then
+            Lighting.Brightness = _G.OriginalBrightness
+        end
+        if nightGui then
+            nightGui.Enabled = true
+        end
+        if _G.OriginalSky and not _G.OriginalSky.Parent then
+            _G.OriginalSky.Parent = Lighting
+        end
+    end
+end
+
+local function SetNoclip(enabled)
+    State.Noclip = enabled
+    if enabled and not NoclipConnection then
+        NoclipConnection = RunService.RenderStepped:Connect(StepNoclip)
+    elseif not enabled and NoclipConnection then
+        NoclipConnection:Disconnect()
+        NoclipConnection = nil
+        local char = LocalPlayer.Character
+        if char then
+            for _, part in ipairs(char:GetChildren()) do
+                if part:IsA("BasePart") then
+                    part.CanCollide = true
+                end
+            end
+        end
+    end
+end
+
+local function SetGodmode(enabled)
+    State.Godmode = enabled
+    if enabled and not GodmodeConnection then
+        GodmodeConnection = RunService.Heartbeat:Connect(StepGodmode)
+    elseif not enabled and GodmodeConnection then
+        GodmodeConnection:Disconnect()
+        GodmodeConnection = nil
+    end
+end
+
+local function SetInfiniteBattery(enabled)
+    State.InfiniteBattery = enabled
+    if enabled and not BatteryConnection then
+        BatteryConnection = RunService.Stepped:Connect(StepBattery)
+    elseif not enabled and BatteryConnection then
+        BatteryConnection:Disconnect()
+        BatteryConnection = nil
+    end
+end
+
+local function SetInfiniteStamina(enabled)
+    State.InfiniteStamina = enabled
+    if enabled and not StaminaConnection then
+        StaminaConnection = RunService.Heartbeat:Connect(StepStamina)
+    elseif not enabled and StaminaConnection then
+        StaminaConnection:Disconnect()
+        StaminaConnection = nil
+    end
+end
+
+local function TpNearestLiveAmmo()
+    local root = LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
+    if not root then return end
+    local nearestPart = nil
+    local bestDist = math.huge
+    local container = ResolvePath(PATH_AMMOPILES)
+    if not container then
+        warn("Container not found for Live Ammo TP.")
+        return
+    end
+    for _, pile in ipairs(container:GetChildren()) do
+        local shells = pile:FindFirstChild("Shells")
+        local logPart = pile:FindFirstChild("Log")
+        if shells and logPart and logPart:IsA("BasePart") then
+            local dist = (root.Position - logPart.Position).Magnitude
+            if dist < bestDist then
+                bestDist = dist
+                nearestPart = logPart
+            end
+        end
+    end
+    if nearestPart then
+        SafeCFrameTP(nearestPart.CFrame)
+    else
+        warn("No active ammo pile found for TP.")
+    end
+end
+
+local function TpNearestActiveJerryCan()
+    local root = LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
+    if not root then return end
+    local nearestPart = nil
+    local bestDist = math.huge
+    local container = ResolvePath(PATH_JERRYCANS)
+    if not container then
+        warn("Container not found for Active JerryCan TP.")
+        return
+    end
+    for _, can in ipairs(container:GetChildren()) do
+        local mainPart = can:FindFirstChild("Main")
+        if mainPart and mainPart:IsA("BasePart") and mainPart.CanCollide == true then
+            local dist = (root.Position - mainPart.Position).Magnitude
+            if dist < bestDist then
+                bestDist = dist
+                nearestPart = mainPart
+            end
+        end
+    end
+    if nearestPart then
+        SafeCFrameTP(nearestPart.CFrame)
+    else
+        warn("No active JerryCan found for TP.")
+    end
+end
+
+local function SpawnItemClientOrRemote(itemName)
+    local remotesFolder = ReplicatedStorage:FindFirstChild("Remotes")
+    local giveItemRemote = remotesFolder and remotesFolder:FindFirstChild("GiveItem")
+    if giveItemRemote and giveItemRemote:IsA("RemoteEvent") then
+        giveItemRemote:FireServer(itemName)
+        return
+    end
+    local itemsFolder = ReplicatedStorage:FindFirstChild("Items")
+    if not itemsFolder then
+        warn("Folder 'Items' not found in ReplicatedStorage.")
+        return
+    end
+    local template = itemsFolder:FindFirstChild(itemName)
+    if template and template:IsA("Tool") and LocalPlayer:FindFirstChild("Backpack") then
+        local clone = template:Clone()
+        clone.Parent = LocalPlayer.Backpack
+    else
+        warn("Item '" .. itemName .. "' not found or is not a Tool.")
+    end
+end
+
+local Remotes = ReplicatedStorage:FindFirstChild("Remotes")
+local items = ReplicatedStorage:FindFirstChild("Items")
+
+Rayfield:Notify({
+    Title = "RMxploit",
+    Content = "Combined universal Rayfield hub loaded.",
+    Duration = 6,
+    Image = 4483362458
+})
+
+--// MAIN TAB \\--
+
+MainTab:CreateParagraph({
+    Title = "REMOTES",
+    Content = "Remotes are located down there."
+})
+
+MainTab:CreateDropdown({
+    Name = "FlashCam:",
+    Options = {"1", "2", "3", "None"},
+    CurrentOption = {"None"},
+    MultipleOptions = false,
+    Flag = "FlashCamDropdown",
+    Callback = function(Value)
+        local flashCam = Remotes and Remotes:FindFirstChild("FlashCam")
+        if flashCam then
+            flashCam:FireServer(getSelectedOption(Value))
+        end
+    end
+})
+
+MainTab:CreateParagraph({
+    Title = "BASIC",
+    Content = "Basic stuff are located down there."
+})
+
+local disabledAC = false
+MainTab:CreateButton({
+    Name = "Bypass Anti-Cheat",
+    Callback = function()
+        if disabledAC then return end
+        local remotesFolder = ReplicatedStorage:FindFirstChild("Remotes")
+        local anticheatRemote = remotesFolder and remotesFolder:FindFirstChild("Kick")
+        if anticheatRemote then
+            anticheatRemote.Name = ""
+            Instance.new("RemoteEvent", remotesFolder).Name = "Kick"
+        end
+        disabledAC = true
+        Rayfield:Notify({
+            Title = "ANTI-CHEAT",
+            Content = "Bypassed Anti-Cheat!",
+            Duration = 5,
+            Image = 4483362458
+        })
+    end
+})
+
+local AutoWireToggle
+AutoWireToggle = MainTab:CreateToggle({
+    Name = "Auto-Wire",
+    CurrentValue = false,
+    Flag = "AutoWireToggle",
+    Callback = function(Toggle)
+        local fuses = Workspace:FindFirstChild("FuseBox")
+        if not fuses or not fuses:FindFirstChild("Wires") then return end
+        local oneTime = false
+
+        if Toggle then
+            task.spawn(function()
+                while AutoWireToggle.CurrentValue do
+                    for _, wire in ipairs(fuses.Wires:GetChildren()) do
+                        local sparkles = wire:FindFirstChild("Sparkles")
+                        local clickWire = Remotes and Remotes:FindFirstChild("ClickWire")
+                        if sparkles and sparkles.Enabled and not oneTime and clickWire then
+                            oneTime = true
+                            clickWire:FireServer(wire)
+                            task.wait(0.5)
+                            oneTime = false
+                        end
+                    end
+                    task.wait(0.5)
+                end
+            end)
+        end
+    end
+})
+
+MainTab:CreateButton({
+    Name = "Remove Closet barriers",
+    Callback = function()
+        if typeof(doors) == "Instance" then
+            for _, closet in pairs(doors:GetChildren()) do
+                if closet.Name == "Closet" and closet:FindFirstChild("Ignore") then
+                    closet.Ignore:Destroy()
+                end
+            end
+        end
+        Rayfield:Notify({
+            Title = "CLOSETS",
+            Content = "Removed Closets barriers!",
+            Duration = 5,
+            Image = 4483362458
+        })
+    end
+})
+
+MainTab:CreateButton({
+    Name = "Events Notifier (Unfinished)",
+    Callback = function()
+        Workspace.ChildAdded:Connect(function(whoi)
+            if whoi.Name == "Mutant" and whoi:FindFirstChild("Config") and whoi.Config:FindFirstChild("Wandering") then
+                if whoi.Config.Wandering.Value == true then
+                    Rayfield:Notify({ Title = "LARRY", Content = "Larry has spawned outside!", Duration = 5, Image = 4483362458 })
+                elseif whoi.Config.Wandering.Value == false then
+                    Rayfield:Notify({ Title = "LARRY", Content = "Larry has spawned in a Window!", Duration = 5, Image = 4483362458 })
+                end
+            end
+        end)
+
+        Workspace.ChildRemoved:Connect(function(whowi)
+            if whowi.Name == "Mutant" then
+                Rayfield:Notify({ Title = "LARRY", Content = "Larry has dispawned!", Duration = 5, Image = 4483362458 })
+            end
+        end)
+    end
+})
+
+MainTab:CreateButton({
+    Name = "INF Sprint",
+    Callback = function()
+        local sprint = Character and Character:FindFirstChild("Sprint")
+        local stam = sprint and sprint:FindFirstChild("Stam")
+        if stam then
+            stam:SetAttribute("Max", 999999)
+            stam.Value = 999999
+        end
+        Rayfield:Notify({ Title = "STAMINA", Content = "You've been given infinite stamina.", Duration = 5, Image = 4483362458 })
+    end
+})
+
+MainTab:CreateButton({
+    Name = "Fix Sprint",
+    Callback = function()
+        if Character then
+            Character:SetAttribute("SprintSpeed", 16)
+            task.wait(0.1)
+            Character:SetAttribute("SprintSpeed", 17)
+        end
+        Rayfield:Notify({ Title = "SPRINT", Content = "Fixed sprint! (Hopefully).", Duration = 5, Image = 4483362458 })
+    end
+})
+
+MainTab:CreateButton({
+    Name = "INF O2",
+    Callback = function()
+        local breath = Character and Character:FindFirstChild("Breath")
+        if breath then
+            breath:SetAttribute("Max", 999999)
+            breath.Value = 999999
+        end
+        local blur = Lighting:FindFirstChild("Blur")
+        if blur then
+            blur.Enabled = false
+        end
+        local sounds = Workspace:FindFirstChild("Sounds")
+        local heavyBreath = sounds and sounds:FindFirstChild("HeavyBreath")
+        if heavyBreath then
+            heavyBreath.Looped = false
+            heavyBreath.Playing = false
+        end
+        Rayfield:Notify({ Title = "BREATH", Content = "You've been given infinite O2.", Duration = 5, Image = 4483362458 })
+    end
+})
+
+MainTab:CreateParagraph({
+    Title = "LOCALSCRIPTS",
+    Content = "Disable certain LocalScripts buttons are located down there."
+})
+
+MainTab:CreateButton({
+    Name = "Disable Cold",
+    Callback = function()
+        local temp = Character and Character:FindFirstChild("Temperature")
+        if temp then
+            temp.Enabled = false
+        end
+        Rayfield:Notify({ Title = "CHRISTMAS", Content = "Freeze localscript has been disabled.", Duration = 5, Image = 4483362458 })
+    end
+})
+
+MainTab:CreateButton({
+    Name = "Disable Deathhandler (not recommended)",
+    Callback = function()
+        local playerScripts = LocalPlayer:FindFirstChild("PlayerScripts")
+        local deathHandler = playerScripts and playerScripts:FindFirstChild("DeathHandler")
+        if deathHandler then
+            deathHandler.Enabled = false
+        end
+        Rayfield:Notify({ Title = "LOCALSCRIPT", Content = "Deathhandler localscript has been disabled.", Duration = 5, Image = 4483362458 })
+    end
+})
+
+MainTab:CreateParagraph({
+    Title = "MOST BASIC",
+    Content = "Most basic things are located down there."
+})
+
+MainTab:CreateSlider({
+    Name = "SprintSpeed",
+    Range = {17, 45},
+    Increment = 1,
+    Suffix = " Speed",
+    CurrentValue = 17,
+    Flag = "SprintSpeedSlider",
+    Callback = function(Value)
+        if Character then
+            Character:SetAttribute("SprintSpeed", Value)
+        end
+    end
+})
+
+--// VISUALS TAB \\--
+
+VisualsTab:CreateButton({
+    Name = "Disable Static",
+    Callback = function()
+        local playerGui = LocalPlayer:FindFirstChild("PlayerGui")
+        local dialogueUI = playerGui and playerGui:FindFirstChild("DialogueUI")
+        local static = dialogueUI and dialogueUI:FindFirstChild("Static")
+        if static then
+            static.Visible = false
+        end
+        Rayfield:Notify({ Title = "VISUAL", Content = "Static has been disabled.", Duration = 5, Image = 4483362458 })
+    end
+})
+
+VisualsTab:CreateButton({
+    Name = "Every Player ESP",
+    Callback = function()
+        local function addESP(player)
+            if player == LocalPlayer then return end
+
+            player.CharacterAdded:Connect(function(char)
+                local highlight = Instance.new("Highlight")
+                highlight.Parent = game:GetService("CoreGui")
+                highlight.Adornee = char
+                highlight.OutlineColor = Color3.fromRGB(0, 0, 255)
+                highlight.FillColor = Color3.fromRGB(173, 216, 230)
+                highlight.FillTransparency = 0.85
+            end)
+
+            if player.Character then
+                local highlight = Instance.new("Highlight")
+                highlight.Parent = game:GetService("CoreGui")
+                highlight.Adornee = player.Character
+                highlight.OutlineColor = Color3.fromRGB(0, 0, 255)
+                highlight.FillColor = Color3.fromRGB(0, 0, 255)
+                highlight.FillTransparency = 0.9
+            end
+        end
+
+        for _, player in pairs(Players:GetPlayers()) do
+            addESP(player)
+        end
+
+        Players.PlayerAdded:Connect(addESP)
+
+        Rayfield:Notify({ Title = "VISUAL ESP [PLAYERS]", Content = "Success.", Duration = 5, Image = 4483362458 })
+    end
+})
+
+VisualsTab:CreateButton({
+    Name = "Larry ESP (Requires anti-cheat bypass)",
+    Callback = function()
+        local mutant = Workspace:FindFirstChild("Mutant")
+        if mutant then
+            local hl = Instance.new("Highlight")
+            hl.Parent = game:GetService("CoreGui")
+            hl.Adornee = mutant
+            hl.FillTransparency = 1
+        end
+        Rayfield:Notify({ Title = "VISUAL ESP [LARRY]", Content = "Success.", Duration = 5, Image = 4483362458 })
+    end
+})
+
+VisualsTab:CreateButton({
+    Name = "Stalker ESP",
+    Callback = function()
+        local stalker = Workspace:FindFirstChild("Stalker")
+        if stalker then
+            local hl = Instance.new("Highlight")
+            hl.Parent = stalker
+            hl.FillTransparency = 1
+        end
+        Rayfield:Notify({ Title = "VISUAL ESP [STALKER]", Content = "Success.", Duration = 5, Image = 4483362458 })
+    end
+})
+
+VisualsTab:CreateButton({
+    Name = "Zombies ESP (Classic)",
+    Callback = function()
+        local zombies = {"FrozenBloodZombie", "Zombie", "BloodZombie", "FrozenZombie"}
+
+        Workspace.ChildAdded:Connect(function(child)
+            if child:IsA("Model") and table.find(zombies, child.Name) and not child:FindFirstChildOfClass("Highlight") then
+                local h = Instance.new("Highlight", child)
+                h.FillTransparency = 1
+            end
+        end)
+
+        for _, child in ipairs(Workspace:GetChildren()) do
+            if child:IsA("Model") and table.find(zombies, child.Name) then
+                local h = Instance.new("Highlight", child)
+                h.FillTransparency = 1
+            end
+        end
+
+        Rayfield:Notify({ Title = "VISUAL ESP [ZOMBIES & SKELETONS]", Content = "Success.", Duration = 5, Image = 4483362458 })
+    end
+})
+
+local EspConfigSection = VisualsTab:CreateSection("ESP Configuration (Extended)")
+
+VisualsTab:CreateToggle({
+    Name = "Toggle Name ESP",
+    CurrentValue = State.Names,
+    Flag = "NameEsp",
+    SectionParent = EspConfigSection,
+    Callback = function(v)
+        State.Names = v
+        RefreshEspLoop()
+    end
+})
+
+VisualsTab:CreateToggle({
+    Name = "Zombies ESP",
+    CurrentValue = State.Zombies,
+    Flag = "ZombiesEsp",
+    SectionParent = EspConfigSection,
+    Callback = function(v)
+        State.Zombies = v
+        RefreshEspLoop()
+    end
+})
+
+VisualsTab:CreateToggle({
+    Name = "Pumpkin ESP",
+    CurrentValue = State.Pumpkins,
+    Flag = "PumpkinsEsp",
+    SectionParent = EspConfigSection,
+    Callback = function(v)
+        State.Pumpkins = v
+        RefreshEspLoop()
+    end
+})
+
+VisualsTab:CreateToggle({
+    Name = "JerryCan ESP",
+    CurrentValue = State.JerryCans,
+    Flag = "JerryCanEsp",
+    SectionParent = EspConfigSection,
+    Callback = function(v)
+        State.JerryCans = v
+        RefreshEspLoop()
+    end
+})
+
+VisualsTab:CreateToggle({
+    Name = "Cabins ESP",
+    CurrentValue = State.Cabins,
+    Flag = "CabinsEsp",
+    SectionParent = EspConfigSection,
+    Callback = function(v)
+        State.Cabins = v
+        RefreshEspLoop()
+    end
+})
+
+VisualsTab:CreateToggle({
+    Name = "Item Spawns ESP",
+    CurrentValue = State.ItemSpots,
+    Flag = "ItemSpotsEsp",
+    SectionParent = EspConfigSection,
+    Callback = function(v)
+        State.ItemSpots = v
+        RefreshEspLoop()
+    end
+})
+
+VisualsTab:CreateToggle({
+    Name = "Live Ammo ESP",
+    CurrentValue = State.LiveAmmo,
+    Flag = "LiveAmmoEsp",
+    SectionParent = EspConfigSection,
+    Callback = function(v)
+        State.LiveAmmo = v
+        RefreshEspLoop()
+    end
+})
+
+VisualsTab:CreateToggle({
+    Name = "Shotgun ESP",
+    CurrentValue = State.Shotgun,
+    Flag = "ShotgunEsp",
+    SectionParent = EspConfigSection,
+    Callback = function(v)
+        State.Shotgun = v
+        RefreshEspLoop()
+    end
+})
+
+VisualsTab:CreateToggle({
+    Name = "Mutant Worker ESP",
+    CurrentValue = State.Mutant,
+    Flag = "MutantEsp",
+    SectionParent = EspConfigSection,
+    Callback = function(v)
+        State.Mutant = v
+        RefreshEspLoop()
+    end
+})
+
+VisualsTab:CreateToggle({
+    Name = "Head Worker ESP (Spider)",
+    CurrentValue = State.Worker,
+    Flag = "WorkerEsp",
+    SectionParent = EspConfigSection,
+    Callback = function(v)
+        State.Worker = v
+        RefreshEspLoop()
+    end
+})
+
+VisualsTab:CreateToggle({
+    Name = "Ghost ESP",
+    CurrentValue = State.Ghost,
+    Flag = "GhostEsp",
+    SectionParent = EspConfigSection,
+    Callback = function(v)
+        State.Ghost = v
+        RefreshEspLoop()
+    end
+})
+
+--// NIGHT 1 TAB \\--
+
+N1Tab:CreateParagraph({
+    Title = "Teleports",
+    Content = "Teleports are located down there."
+})
+
+for _, locName in ipairs({"Ladder", "Generator", "Entrance", "LivingRoom", "Bedroom"}) do
+    N1Tab:CreateButton({
+        Name = "Teleport to " .. locName,
+        Callback = function()
+            Teleport(locName)
+            Rayfield:Notify({ Title = "TP", Content = "Teleported!", Duration = 5, Image = 4483362458 })
+        end
+    })
+end
+
+N1Tab:CreateParagraph({
+    Title = "AUTOMATICS",
+    Content = "Automatics are located down there."
+})
+
+N1Tab:CreateButton({
+    Name = "Refill Fireplace",
+    Callback = function()
+        local root = character and character:FindFirstChild("HumanoidRootPart")
+        local woodPile = Workspace:FindFirstChild("WoodPile")
+        if root and woodPile and woodPile:FindFirstChild("Detector") then
+            local oCFrame = root.CFrame
+            woodPile.Detector.CanCollide = false
+            root.CFrame = CFrame.new(-27.1490536, 8.69999981, -118.611603, 0.999933779, 1.25921233e-07, -0.0115088131, -1.26111075e-07, 1, -1.57700288e-08, 0.0115088131, 1.72203727e-08, 0.999933779)
+            task.wait(0.25)
+            fireclickdetector(woodPile.Detector.ClickDetector)
+            task.wait(0.25)
+            root.CFrame = CFrame.new(-45.1136208, 7.84974337, -60.2411423, 0.0467772186, -0.000410021428, 0.998905241, 1.91703771e-06, 0.99999994, 0.000410380948, -0.998905301, -1.72815417e-05, 0.0467772186)
+            task.wait(0.5)
+            root.CFrame = oCFrame
+        end
+        Rayfield:Notify({ Title = "CHRISTMAS", Content = "Refilled Fire-place!", Duration = 5, Image = 4483362458 })
+    end
+})
+
+N1Tab:CreateButton({
+    Name = "Refill Fireplace 2 (No TP Back)",
+    Callback = function()
+        local root = character and character:FindFirstChild("HumanoidRootPart")
+        local woodPile = Workspace:FindFirstChild("WoodPile")
+        if root and woodPile and woodPile:FindFirstChild("Detector") then
+            woodPile.Detector.CanCollide = false
+            root.CFrame = CFrame.new(-27.1490536, 8.69999981, -118.611603, 0.999933779, 1.25921233e-07, -0.0115088131, -1.26111075e-07, 1, -1.57700288e-08, 0.0115088131, 1.72203727e-08, 0.999933779)
+            task.wait(0.25)
+            fireclickdetector(woodPile.Detector.ClickDetector)
+            task.wait(0.25)
+            root.CFrame = CFrame.new(-45.1136208, 7.84974337, -60.2411423, 0.0467772186, -0.000410021428, 0.998905241, 1.91703771e-06, 0.99999994, 0.000410380948, -0.998905301, -1.72815417e-05, 0.0467772186)
+        end
+        Rayfield:Notify({ Title = "CHRISTMAS", Content = "Refilled Fire-place!", Duration = 5, Image = 4483362458 })
+    end
+})
+
+N1Tab:CreateButton({
+    Name = "Auto Scare (Requires 1+ camera placed)",
+    Callback = function()
+        Workspace.ChildAdded:Connect(function(whoi)
+            if whoi.Name == "Mutant" and whoi:FindFirstChild("Config") and whoi.Config:FindFirstChild("Wandering") then
+                if whoi.Config.Wandering.Value == false then
+                    task.wait(1.5)
+                    local flashCam = Remotes and Remotes:FindFirstChild("FlashCam")
+                    if flashCam then
+                        flashCam:FireServer("1")
+                    end
+                end
+            end
+        end)
+    end
+})
+
+N1Tab:CreateButton({
+    Name = "Grab Wood",
+    Callback = function()
+        local root = character and character:FindFirstChild("HumanoidRootPart")
+        local woodPile = Workspace:FindFirstChild("WoodPile")
+        if root and woodPile and woodPile:FindFirstChild("Detector") then
+            local oCFrame = root.CFrame
+            woodPile.Detector.CanCollide = false
+            root.CFrame = CFrame.new(-27.1490536, 8.69999981, -118.611603, 0.999933779, 1.25921233e-07, -0.0115088131, -1.26111075e-07, 1, -1.57700288e-08, 0.0115088131, 1.72203727e-08, 0.999933779)
+            task.wait(0.25)
+            fireclickdetector(woodPile.Detector.ClickDetector)
+            task.wait(0.25)
+            root.CFrame = oCFrame
+        end
+        Rayfield:Notify({ Title = "CHRISTMAS", Content = "Grabbing Wood...", Duration = 5, Image = 4483362458 })
+    end
+})
+
+N1Tab:CreateButton({
+    Name = "Grab Barricade Pile (Quite useless)",
+    Callback = function()
+        local root = character and character:FindFirstChild("HumanoidRootPart")
+        local barricadePile = Workspace:FindFirstChild("BarricadePile")
+        if root and barricadePile and barricadePile:FindFirstChild("Detector") then
+            local oCFrame = root.CFrame
+            root.CFrame = CFrame.new(-43.144, 25.3, -68.021)
+            task.wait(0.25)
+            fireclickdetector(barricadePile.Detector.ClickDetector)
+            task.wait(0.25)
+            root.CFrame = oCFrame
+        end
+        Rayfield:Notify({ Title = "BARRICADES", Content = "Grabbed Barricade!", Duration = 5, Image = 4483362458 })
+    end
+})
+
+N1Tab:CreateButton({
+    Name = "Refill Generator",
+    Callback = function()
+        local root = character and character:FindFirstChild("HumanoidRootPart")
+        local shack = Workspace:FindFirstChild("Shack")
+        if root and shack then
+            local oCFrame = root.CFrame
+            root.CFrame = CFrame.new(-76.039, 4.675, -133.78)
+            task.wait(0.25)
+            if shack:FindFirstChild("JerryCan") then
+                fireclickdetector(shack.JerryCan.ClickDetector)
+            end
+            task.wait(0.5)
+            if shack:FindFirstChild("Generator") then
+                fireclickdetector(shack.Generator.ClickDetector)
+            end
+            task.wait(0.5)
+            root.CFrame = oCFrame
+        end
+        Rayfield:Notify({ Title = "GENERATOR", Content = "Refilled", Duration = 5, Image = 4483362458 })
+    end
+})
+
+N1Tab:CreateButton({
+    Name = "Grab JerryCan",
+    Callback = function()
+        local root = character and character:FindFirstChild("HumanoidRootPart")
+        local shack = Workspace:FindFirstChild("Shack")
+        if root and shack and shack:FindFirstChild("JerryCan") then
+            local oCFrame = root.CFrame
+            root.CFrame = CFrame.new(-76.039, 4.675, -133.78)
+            task.wait(0.25)
+            fireclickdetector(shack.JerryCan.ClickDetector)
+            task.wait(0.25)
+            root.CFrame = oCFrame
+        end
+        Rayfield:Notify({ Title = "JERRY CAN", Content = "Grabbed!", Duration = 5, Image = 4483362458 })
+    end
+})
+
+N1Tab:CreateParagraph({
+    Title = "Endless",
+    Content = "Endless stuff are located down there."
+})
+
+N1Tab:CreateButton({
+    Name = "Open UpgradeFrame",
+    Callback = function()
+        local playerGui = LocalPlayer:FindFirstChild("PlayerGui")
+        local dialogueUI = playerGui and playerGui:FindFirstChild("DialogueUI")
+        local upgradeFrame = dialogueUI and dialogueUI:FindFirstChild("UpgradeFrame")
+        if upgradeFrame then
+            upgradeFrame.Visible = true
+            upgradeFrame.Position = UDim2.new(0.499, 0, 0.5, 0)
+        end
+        Rayfield:Notify({ Title = "ENDLESS", Content = "UpgradeFrame's visible!", Duration = 5, Image = 4483362458 })
+    end
+})
+
+N1Tab:CreateButton({
+    Name = "EZ Gambler mini-game",
+    Callback = function()
+        local assets = ReplicatedStorage:FindFirstChild("Assets")
+        local gambler = (assets and assets:FindFirstChild("Gambler")) or Workspace:FindFirstChild("Gambler")
+        if gambler and gambler:FindFirstChild("Cups") then
+            gambler.Cups["1"].BrickColor = BrickColor.new("Really red")
+            gambler.Cups["3"].BrickColor = BrickColor.new("Lime green")
+        end
+        Rayfield:Notify({ Title = "ENDLESS", Content = "Gambler mini-game is easier!", Duration = 5, Image = 4483362458 })
+    end
+})
+
+N1Tab:CreateParagraph({
+    Title = "PvP",
+    Content = "PvP stuff are located down there."
+})
+
+N1Tab:CreateButton({
+    Name = "Place trap",
+    Callback = function()
+        local root = LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
+        local playerMutant = Remotes and Remotes:FindFirstChild("PlayerMutant")
+        if root and playerMutant then
+            playerMutant:FireServer("Trap", root.CFrame)
+        end
+        Rayfield:Notify({ Title = "PVP", Content = "Placed Trap!", Duration = 5, Image = 4483362458 })
+    end
+})
+
+N1Tab:CreateButton({
+    Name = "Un-anchor root part",
+    Callback = function()
+        local root = LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
+        if root then
+            root.Anchored = false
+        end
+        Rayfield:Notify({ Title = "PVP", Content = "Un-anchored rootpart!", Duration = 5, Image = 4483362458 })
+    end
+})
+
+N1Tab:CreateButton({
+    Name = "Fast (requires anti-cheat bypass)",
+    Callback = function()
+        local hum = LocalPlayer.Character and LocalPlayer.Character:FindFirstChildOfClass("Humanoid")
+        if hum then
+            task.spawn(function()
+                while hum and hum.Parent do
+                    hum.WalkSpeed = 30
+                    task.wait(0.1)
+                end
+            end)
+        end
+        Rayfield:Notify({ Title = "PVP", Content = "You're fast now!", Duration = 5, Image = 4483362458 })
+    end
+})
+
+N1Tab:CreateButton({
+    Name = "Enable Jumping",
+    Callback = function()
+        local hum = LocalPlayer.Character and LocalPlayer.Character:FindFirstChildOfClass("Humanoid")
+        if hum then
+            task.spawn(function()
+                while hum and hum.Parent do
+                    hum:SetStateEnabled(Enum.HumanoidStateType.Jumping, true)
+                    hum.JumpPower = 50
+                    task.wait(0.1)
+                end
+            end)
+        end
+        Rayfield:Notify({ Title = "PVP", Content = "You can jump now!", Duration = 5, Image = 4483362458 })
+    end
+})
+
+--// NIGHT 2 TAB \\--
+
+N2Tab:CreateButton({
+    Name = "Give Tablet",
+    Callback = function()
+        if items and items:FindFirstChild("Tablet") and Character then
+            local t = items.Tablet:Clone()
+            t.Parent = Character
+        end
+        Rayfield:Notify({ Title = "ITEMS", Content = "You've been given the Tablet.", Duration = 5, Image = 4483362458 })
+    end
+})
+
+N2Tab:CreateParagraph({
+    Title = "Teleports",
+    Content = "Teleports are located down there."
+})
+
+local n2Teleports = {
+    {"Teleport to Entrance", "Entrance2"},
+    {"Teleport to DeliveryBoard", "DeliveryBoard"},
+    {"Teleport to Main", "Main"},
+    {"Teleport to Corridor 1", "Corridor1"},
+    {"Teleport to Corridor 2", "Corridor2"}
+}
+
+for _, entry in ipairs(n2Teleports) do
+    N2Tab:CreateButton({
+        Name = entry[1],
+        Callback = function()
+            Teleport(entry[2])
+            Rayfield:Notify({ Title = "TP", Content = "Teleported!", Duration = 5, Image = 4483362458 })
+        end
+    })
+end
+
+N2Tab:CreateParagraph({
+    Title = "Automatics",
+    Content = "Automatics are located down there."
+})
+
+N2Tab:CreateButton({
+    Name = "Refill Power",
+    Callback = function()
+        local root = character and character:FindFirstChild("HumanoidRootPart")
+        local powerCell = Workspace:FindFirstChild("PowerCell")
+        local generator = Workspace:FindFirstChild("Generator")
+        if root and powerCell and generator and generator:FindFirstChild("Detector") then
+            local oCFrame = root.CFrame
+            root.CFrame = CFrame.new(-318.606567, 82.3999634, 97.8991776, -0.0253890008, -5.39555138e-08, -0.999677658, 3.64161301e-09, 1, -5.40653993e-08, 0.999677658, -5.01310549e-09, -0.0253890008)
+            task.wait(0.25)
+            fireclickdetector(powerCell.ClickDetector)
+            task.wait(0.25)
+            root.CFrame = CFrame.new(-271.368439, 82.3999634, 112.977608, -0.9987728, -3.20747908e-08, 0.0495270789, -2.73038125e-08, 1, 9.70072804e-08, -0.0495270789, 9.55359525e-08, -0.9987728)
+            task.wait(0.25)
+            fireclickdetector(generator.Detector.ClickDetector)
+            task.wait(0.25)
+            root.CFrame = oCFrame
+        end
+        Rayfield:Notify({ Title = "NIGHT 2", Content = "Refilled power!", Duration = 5, Image = 4483362458 })
+    end
+})
+
+N2Tab:CreateParagraph({
+    Title = "ANTIS",
+    Content = "Some Buttons that make you immune to certain things are located down there."
+})
+
+N2Tab:CreateButton({
+    Name = "Disable Stalker View DMG",
+    Callback = function()
+        local lookAt = Remotes and Remotes:FindFirstChild("LookAt")
+        if lookAt then
+            lookAt:Destroy()
+        end
+        Rayfield:Notify({ Title = "STALKER", Content = "You're immune to Stalker view damage now.", Duration = 5, Image = 4483362458 })
+    end
+})
+
+N2Tab:CreateButton({
+    Name = "Anti Vent-Pests",
+    Callback = function()
+        local grids = Workspace:FindFirstChild("Grids")
+        if grids then
+            for _, gridel in grids:GetChildren() do
+                if gridel:IsA("Model") then
+                    for _, child in gridel:GetChildren() do
+                        if child:IsA("Part") and child.Name == "Hitbox" then
+                            child:Destroy()
+                        end
+                    end
+                end
+            end
+        end
+        Rayfield:Notify({ Title = "PESTS", Content = "You're immune to Vent Pest's snatch now.", Duration = 5, Image = 4483362458 })
+    end
+})
+
+N2Tab:CreateParagraph({
+    Title = "REMOTES",
+    Content = "Remotes are located down there."
+})
+
+N2Tab:CreateButton({
+    Name = "Revive",
+    Callback = function()
+        local loadChar = Remotes and Remotes:FindFirstChild("LoadCharacter")
+        if loadChar then
+            loadChar:FireServer()
+        end
+        task.wait(1)
+        Rayfield:Notify({ Title = "NIGHT 2", Content = "Revived!", Duration = 5, Image = 4483362458 })
+    end
+})
+
+N2Tab:CreateButton({
+    Name = "Escape-Snatch",
+    Callback = function()
+        local escapeSnatch = Remotes and Remotes:FindFirstChild("EscapeSnatch")
+        if escapeSnatch then
+            escapeSnatch:FireServer()
+        end
+        Rayfield:Notify({ Title = "NIGHT 2", Content = "Escaped the Snatch!", Duration = 5, Image = 4483362458 })
+    end
+})
+
+N2Tab:CreateDropdown({
+    Name = "Delivery:",
+    Options = {"Camera", "Lock", "UVLamp", "MotionSensor", "None"},
+    CurrentOption = {"None"},
+    MultipleOptions = false,
+    Flag = "DeliveryDropdown",
+    Callback = function(Value)
+        local delivery = Remotes and Remotes:FindFirstChild("Delivery")
+        if delivery then
+            delivery:FireServer(getSelectedOption(Value))
+        end
+    end
+})
+
+N2Tab:CreateDropdown({
+    Name = "Repair Wire:",
+    Options = {"1", "2", "3", "4", "None"},
+    CurrentOption = {"None"},
+    MultipleOptions = false,
+    Flag = "RepairWireDropdown",
+    Callback = function(Value)
+        local selected = getSelectedOption(Value)
+        local repair = Remotes and Remotes:FindFirstChild("Repair")
+        if repair then
+            repair:FireServer(selected)
+        end
+        Rayfield:Notify({
+            Title = "NIGHT 2",
+            Content = "Repairing: " .. tostring(selected) .. " (If RepairWorker isn't dead)",
+            Duration = 5,
+            Image = 4483362458
+        })
+    end
+})
+
+--// NIGHT 3 & HELPER TAB \\--
+
+local AmmoTpSection = N3HelperTab:CreateSection("Ammo TPs")
+N3HelperTab:CreateButton({ Name = "TP to Nearest LIVE Ammo", Callback = TpNearestLiveAmmo, SectionParent = AmmoTpSection })
+
+local JerryCanTpSection = N3HelperTab:CreateSection("JerryCan TPs")
+N3HelperTab:CreateButton({ Name = "TP to Nearest ACTIVE JerryCan", Callback = TpNearestActiveJerryCan, SectionParent = JerryCanTpSection })
+
+local CabinTpSection = N3HelperTab:CreateSection("Cabin TPs")
+N3HelperTab:CreateButton({ Name = "Cabin Tp 1", Callback = function() TeleportToIndexedPath("Cabins.Cabin") end, SectionParent = CabinTpSection })
+N3HelperTab:CreateButton({ Name = "Cabin Tp 2", Callback = function() TeleportToIndexedPath("Cabins[4]") end, SectionParent = CabinTpSection })
+N3HelperTab:CreateButton({ Name = "Cabin Tp 3", Callback = function() TeleportToIndexedPath("Cabins[3]") end, SectionParent = CabinTpSection })
+N3HelperTab:CreateButton({ Name = "Cabin Tp 4", Callback = function() TeleportToIndexedPath("Cabins[2]") end, SectionParent = CabinTpSection })
+
+local GhostTpSection = N3HelperTab:CreateSection("Ghost TP")
+N3HelperTab:CreateButton({
+    Name = "TP to Ghost",
+    Callback = function()
+        local ghost = Workspace:FindFirstChild(NAME_GHOST) or ReplicatedStorage:FindFirstChild(NAME_GHOST)
+        local head = ghost and ghost:FindFirstChild("Head")
+        if head and head:IsA("BasePart") then
+            SafeCFrameTP(head.CFrame)
+        else
+            warn("Ghost Head part not found for TP.")
+        end
+    end,
+    SectionParent = GhostTpSection
+})
+
+local ItemGiverSection = N3HelperTab:CreateSection("Item Giver (Client / Remote)")
+N3HelperTab:CreateButton({
+    Name = "Give Shotgun",
+    Callback = function() SpawnItemClientOrRemote(NAME_SHOTGUN) end,
+    SectionParent = ItemGiverSection
+})
+
+--// MISC & ANTIS TAB \\--
+
+local UtilitiesSection = MiscTab:CreateSection("Utilities")
+MiscTab:CreateToggle({ Name = "Noclip", CurrentValue = State.Noclip, Flag = "Noclip", SectionParent = UtilitiesSection, Callback = SetNoclip })
+MiscTab:CreateToggle({ Name = "Godmode (Anti-Kill)", CurrentValue = State.Godmode, Flag = "Godmode", SectionParent = UtilitiesSection, Callback = SetGodmode })
+MiscTab:CreateToggle({ Name = "Infinite Battery", CurrentValue = State.InfiniteBattery, Flag = "InfiniteBattery", SectionParent = UtilitiesSection, Callback = SetInfiniteBattery })
+MiscTab:CreateToggle({ Name = "Infinite Stamina", CurrentValue = State.InfiniteStamina, Flag = "InfiniteStamina", SectionParent = UtilitiesSection, Callback = SetInfiniteStamina })
+
+local VisualUtilitySection = MiscTab:CreateSection("Visual Utility")
+MiscTab:CreateToggle({ Name = "Fullbright", CurrentValue = State.Fullbright, Flag = "Fullbright", SectionParent = VisualUtilitySection, Callback = SetFullbright })
+
+local WarningSection = MiscTab:CreateSection("Security Warnings")
+MiscTab:CreateToggle({ Name = "Cabin Intrusion Warning", CurrentValue = State.CabinWarning, Flag = "CabinWarning", SectionParent = WarningSection, Callback = SetCabinWarning })
